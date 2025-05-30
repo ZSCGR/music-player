@@ -10,12 +10,13 @@ ini_set('display_errors', 1);
 date_default_timezone_set('UTC');
 
 // 引入 getID3 库
-require_once('getid3/getid3.php');
+//require_once('getid3/getid3.php');
+require_once __DIR__ . '/../vendor/autoload.php';
 
 // 配置常量
 const UPLOAD_DIR = '/tmp/music_files/';
 const COVERS_DIR = '/tmp/covers/';
-const SONGS_FILE = 'songs.json';
+const SONGS_FILE = '/tmp/songs.json';
 const ALLOWED_EXTENSIONS = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'];
 const MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024; // 100 MB
 
