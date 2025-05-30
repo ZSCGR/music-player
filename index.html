@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinyl - 优雅的本地音乐播放器</title>
+    <meta name="description" content="一个简洁极致优雅美感的本地音乐播放器，类似apple music的质感，支持上传本地音乐进行播放。">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts - Inter (Apple SF Pro 替代) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --neu-background: #e0e5ec;
+            --neu-light-shadow: #ffffff;
+            --neu-dark-shadow: #a3b1c6;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+            --accent: #6c5ce7;
+            --accent-light: #a29bfe;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--neu-background);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* 拟态效果 - 凸起 */
+        .neu-convex {
+            border-radius: 16px;
+            background: var(--neu-background);
+            box-shadow: 8px 8px 16px var(--neu-dark-shadow),
+                        -8px -8px 16px var(--neu-light-shadow);
+        }
+
+        /* 拟态效果 - 凹陷 */
+        .neu-concave {
+            border-radius: 16px;
+            background: var(--neu-background);
+            box-shadow: inset 8px 8px 16px var(--neu-dark-shadow),
+                        inset -8px -8px 16px var(--neu-light-shadow);
+        }
+
+        /* 拟态效果 - 按钮 */
+        .neu-button {
+            border-radius: 50%;
+            background: var(--neu-background);
+            box-shadow: 5px 5px 10px var(--neu-dark-shadow),
+                        -5px -5px 10px var(--neu-light-shadow);
+            transition: all 0.2s ease;
+        }
+
+        .neu-button:hover:not(:disabled) {
+            box-shadow: 7px 7px 14px var(--neu-dark-shadow),
+                        -7px -7px 14px var(--neu-light-shadow);
+            transform: translateY(-2px); /* Added slight lift on hover */
+        }
+
+        .neu-button:active:not(:disabled) {
+            box-shadow: inset 5px 5px 10px var(--neu-dark-shadow),
+                        inset -5px -5px 10px var(--neu-light-shadow);
+            transform: translateY(0); /* Reset position on active */
+        }
+
+         .neu-button:disabled {
+             color: #a3b1c6 !important; /* Dim disabled buttons */
+             cursor: not-allowed;
+             box-shadow: none; /* No shadow on disabled */
+         }
+
+
+        /* 黑胶唱片样式 */
+        .vinyl-record {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: var(--neu-background);
+            box-shadow: 12px 12px 24px var(--neu-dark-shadow),
+                        -12px -12px 24px var(--neu-light-shadow);
+            transition: all 0.5s ease;
+        }
+
+        .vinyl-record::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background: var(--neu-background);
+            border-radius: 50%;
+            box-shadow: inset 4px 4px 8px var(--neu-dark-shadow),
+                        inset -4px -4px 8px var(--neu-light-shadow);
+            z-index: 3;
+        }
+
+        .vinyl-record::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background: var(--accent);
+            border-radius: 50%;
+            z-index: 4;
+        }
+
+        .vinyl-record img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            opacity: 0.85;
+        }
+
+        .vinyl-grooves {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-radial-gradient(
+                circle at center,
+                rgba(45, 55, 72, 0.05) 0px,
+                rgba(45, 55, 72, 0.05) 1px,
+                transparent 1px,
+                transparent 4px
+            );
+            border-radius: 50%;
+            z-index: 2;
+            opacity: 0.7;
+            mix-blend-mode: overlay;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .vinyl-rotating {
+            animation: rotate 20s linear infinite;
+            animation-play-state: paused;
+        }
+
+        /* The parent container triggers the animation state */
+        #player-container.playing .vinyl-rotating {
+            animation-play-state: running;
+        }
+
+        /* 进度条样式 */
+        .progress-bar {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            border-radius: 8px;
+            background: var(--neu-background);
+            box-shadow: inset 3px 3px 6px var(--neu-dark-shadow),
+                        inset -3px -3px 6px var(--neu-light-shadow);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .progress-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 2px 2px 4px var(--neu-dark-shadow),
+                        -2px -2px 4px var(--neu-light-shadow);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .progress-bar:hover::-webkit-slider-thumb {
+            opacity: 1;
+        }
+
+        .progress-bar::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 2px 2px 4px var(--neu-dark-shadow),
+                        -2px -2px 4px var(--neu-light-shadow);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            border: none;
+        }
+
+        .progress-bar:hover::-moz-range-thumb {
+            opacity: 1;
+        }
+
+        /* 音量控制样式 */
+        .volume-control {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 6px;
+            background: var(--neu-background);
+            box-shadow: inset 2px 2px 4px var(--neu-dark-shadow),
+                        inset -2px -2px 4px var(--neu-light-shadow);
+            cursor: pointer;
+        }
+
+        .volume-control::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 2px 2px 3px var(--neu-dark-shadow),
+                        -2px -2px 3px var(--neu-light-shadow);
+            cursor: pointer;
+        }
+
+        .volume-control::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 2px 2px 3px var(--neu-dark-shadow),
+                        -2px -2px 3px var(--neu-light-shadow);
+            cursor: pointer;
+            border: none;
+        }
+
+        /* 播放列表项目样式 */
+        .playlist-item {
+            border-bottom: 1px solid rgba(163, 177, 198, 0.3);
+            transition: all 0.2s;
+            /* Added flex for layout and spacing */
+            display: flex;
+            align-items: center;
+            /* justifyContent: space-between; /* REMOVED: No more delete button */
+            gap: 12px; /* Space between items */
+        }
+
+        .playlist-item:last-child {
+             border-bottom: none; /* No border for the last item */
+        }
+
+        .playlist-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .playlist-item.active {
+            background: rgba(108, 92, 231, 0.1);
+            border-left: 3px solid var(--accent);
+            padding-left: calc(1rem - 3px); /* Adjust padding to compensate border */
+        }
+
+         /* Ensure padding is consistent when active/inactive */
+         .playlist-item:not(.active) {
+             padding-left: 1rem;
+         }
+
+
+        /* 隐藏默认文件输入框 */
+        .file-input {
+            display: none;
+        }
+
+        /* 上传按钮效果 */
+        .upload-button {
+            border-radius: 24px;
+            background: var(--neu-background);
+            box-shadow: 5px 5px 10px var(--neu-dark-shadow),
+                        -5px -5px 10px var(--neu-light-shadow);
+            transition: all 0.3s ease;
+        }
+
+        .upload-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .upload-button:active {
+            box-shadow: inset 5px 5px 10px var(--neu-dark-shadow),
+                        inset -5px -5px 10px var(--neu-light-shadow);
+            transform: translateY(0);
+        }
+
+         /* Delete button style (removed from UI, but keep for reference if needed)
+        .delete-button {
+            background: none;
+            border: none;
+            color: #dc3545;
+            font-size: 1em;
+            cursor: pointer;
+            padding: 4px;
+            transition: color 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .delete-button:hover {
+             color: #c82333;
+        } */
+
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--neu-background);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--neu-dark-shadow);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        /* Placeholder text style for empty list/no selection */
+         .placeholder-text {
+             text-align: center;
+             color: var(--text-secondary);
+         }
+
+         /* Add some padding to the playlist container itself */
+         #playlist {
+             padding: 1rem;
+         }
+
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+    <!-- 主容器 -->
+    <div class="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
+        <!-- 左侧播放器主体 -->
+        <div class="w-full md:w-2/3 flex flex-col items-center">
+            <!-- 头部区域：标题和上传按钮 -->
+            <div class="w-full flex justify-between items-center mb-8">
+                <h1 class="text-2xl font-semibold tracking-tight">Vinyl Player</h1>
+                <label for="upload-music" class="upload-button text-accent px-6 py-3 rounded-full text-sm font-medium cursor-pointer flex items-center gap-2">
+                    <i class="fas fa-upload"></i>
+                    <span>上传音乐</span>
+                </label>
+                <input type="file" id="upload-music" class="file-input" accept="audio/*" multiple>
+            </div>
+
+            <!-- 唱片区域 -->
+            <div id="player-container" class="relative mb-10 flex flex-col items-center">
+                <div id="vinyl-record" class="vinyl-record vinyl-rotating mb-6">
+                    <div class="vinyl-grooves"></div>
+                    <!-- Default cover or loading placeholder -->
+                    <img id="album-cover" src="https://picsum.photos/seed/vinyl/300/300" alt="默认封面">
+                </div>
+
+                <!-- 歌曲信息 -->
+                <div class="text-center mt-6 mb-4">
+                    <h2 id="song-title" class="text-2xl font-bold mb-1 truncate max-w-xs">未选择歌曲</h2>
+                    <p id="song-artist" class="text-base text-gray-500 truncate max-w-xs">请上传音乐文件</p>
+                </div>
+            </div>
+
+            <!-- 控制区域 -->
+            <div class="w-full max-w-md neu-convex p-8">
+                <!-- 进度条 -->
+                <div class="flex items-center gap-3 mb-6">
+                    <span id="current-time" class="text-xs text-gray-500 w-10 text-right">0:00</span>
+                    <!-- max will be updated by JS once duration is known -->
+                    <input type="range" id="progress-bar" class="progress-bar flex-grow" min="0" max="100" value="0">
+                    <span id="total-time" class="text-xs text-gray-500 w-10">0:00</span>
+                </div>
+
+                <!-- 播放控制按钮 -->
+                <div class="flex justify-center items-center gap-10 mb-8">
+                    <button id="prev-button" class="neu-button w-12 h-12 flex items-center justify-center text-gray-500 hover:text-accent transition-colors" disabled>
+                        <i class="fas fa-step-backward text-xl"></i>
+                    </button>
+                    <!-- Play/Pause button -->
+                    <button id="play-button" class="neu-button w-16 h-16 flex items-center justify-center text-accent hover:text-accent-light transition-colors" disabled>
+                        <i class="fas fa-play text-lg" id="play-icon"></i>
+                    </button>
+                    <button id="next-button" class="neu-button w-12 h-12 flex items-center justify-center text-gray-500 hover:text-accent transition-colors" disabled>
+                        <i class="fas fa-step-forward text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- 音量和循环控制 -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <!-- Shuffle button -->
+                        <button id="shuffle-button" class="neu-button w-10 h-10 flex items-center justify-center text-gray-500 hover:text-accent transition-colors" disabled>
+                            <i class="fas fa-random"></i>
+                        </button>
+                        <!-- Repeat button -->
+                        <button id="repeat-button" class="neu-button w-10 h-10 flex items-center justify-center text-gray-500 hover:text-accent transition-colors" disabled>
+                            <i class="fas fa-redo-alt"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-3 neu-concave px-4 py-2 rounded-full">
+                        <i class="fas fa-volume-down text-gray-500"></i>
+                        <input type="range" id="volume-control" class="volume-control w-20" min="0" max="100" value="80">
+                        <i class="fas fa-volume-up text-gray-500"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧播放列表 -->
+        <div class="w-full md:w-1/3 mt-8 md:mt-0">
+            <div class="neu-convex p-6 h-[500px] overflow-hidden flex flex-col">
+                <h3 class="font-medium text-lg mb-6 flex items-center gap-2">
+                    <i class="fas fa-music text-accent"></i>
+                    播放列表
+                </h3>
+
+                <!-- Playlist container -->
+                <div id="playlist" class="overflow-y-auto flex-grow neu-concave rounded-xl">
+                    <!-- Playlist items will be loaded here by JavaScript -->
+                    <!-- Initial placeholder text -->
+                    <div class="placeholder-text py-10">正在加载歌曲列表...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 音频元素 -->
+    <audio id="audio-player"></audio>
+
+    <script>
+        console.log("脚本文件开始执行 - Top Level");
+
+        // --- Global State ---
+        let isPlaying = false;
+        let isShuffle = false;
+        let isRepeat = false;
+        let songs = [];
+        let currentSongIndex = -1;
+
+        // --- DOM Elements ---
+        let audioPlayer, playButton, playIcon, prevButton, nextButton,
+            progressBar, volumeControl, currentTimeDisplay, totalTimeDisplay,
+            shuffleButton, repeatButton, uploadMusicInput, playlistContainer,
+            albumCover, songTitle, songArtist, playerContainer;
+
+
+        // --- Utility Functions ---
+
+        // Format time (seconds -> MM:SS)
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds < 0) {
+                return '0:00';
+            }
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        // Update the state of control buttons (disabled/enabled)
+        function updateButtonsState() {
+             console.log('updateButtonsState: 更新按钮状态', { songsLength: songs.length, currentSongIndex: currentSongIndex });
+            const hasSongs = songs.length > 0;
+            if (playButton) playButton.disabled = !hasSongs;
+            if (prevButton) prevButton.disabled = !hasSongs || currentSongIndex <= 0; // Check currentSongIndex for prev button
+            if (nextButton) nextButton.disabled = !hasSongs || currentSongIndex >= songs.length - 1; // Check currentSongIndex for next button
+
+            // Only enable progress bar if there's a song selected AND duration is known or estimated
+            const isCurrentSongLoaded = currentSongIndex !== -1 && songs[currentSongIndex];
+            const hasValidAudioDuration = audioPlayer && isFinite(audioPlayer.duration) && audioPlayer.duration > 0;
+            const hasBackendDuration = isCurrentSongLoaded && (songs[currentSongIndex].duration_seconds || 0) > 0; // Check for backend duration
+            // Enable progress bar if a song is loaded and either audio duration is valid OR backend has duration
+            if (progressBar) progressBar.disabled = !isCurrentSongLoaded || (!hasValidAudioDuration && !hasBackendDuration && !audioPlayer.src); // Added audioPlayer.src check
+
+
+            if (volumeControl) volumeControl.disabled = !hasSongs;
+            if (shuffleButton) shuffleButton.disabled = !hasSongs;
+            if (repeatButton) repeatButton.disabled = !hasSongs;
+        }
+
+        // Update progress bar and time displays
+        function updateProgressBar() {
+            if (!audioPlayer || !progressBar || !currentTimeDisplay || !totalTimeDisplay) return;
+
+            const { currentTime, duration } = audioPlayer;
+            const currentSong = songs[currentSongIndex];
+            const backendDuration = currentSong ? (currentSong.duration_seconds || 0) : 0; // Duration from backend (0 for external URLs)
+
+            // console.log('updateProgressBar: currentTime:', currentTime, 'audioPlayer.duration:', duration, 'backendDuration:', backendDuration);
+
+             // Use audioPlayer.duration if valid, otherwise fall back to backend duration for display
+             const effectiveDurationForDisplay = isFinite(duration) && duration > 0 ? duration : backendDuration;
+             const effectiveDurationForProgress = isFinite(duration) && duration > 0 ? duration : (backendDuration > 0 ? backendDuration : 0); // Only use backend if >0
+
+             currentTimeDisplay.textContent = formatTime(currentTime);
+
+             if (effectiveDurationForProgress > 0) {
+                const progressPercent = (currentTime / effectiveDurationForProgress) * 100;
+                progressBar.value = progressPercent;
+                progressBar.max = 100; // Keep max at 100 for percentage
+             } else {
+                 progressBar.value = 0;
+                 progressBar.max = 0; // Disable interaction if no effective duration
+             }
+             // Always update totalTimeDisplay from effective duration
+             totalTimeDisplay.textContent = formatTime(effectiveDurationForDisplay);
+             updateButtonsState(); // Update button states (especially progress bar disabled state)
+        }
+
+        // Set playback position based on progress bar value
+        function setPlaybackPosition() {
+             if (!audioPlayer || !progressBar) return;
+
+            const { duration } = audioPlayer;
+            const currentSong = songs[currentSongIndex];
+            const backendDuration = currentSong ? (currentSong.duration_seconds || 0) : 0;
+
+            // Use audioPlayer.duration for seeking if available, otherwise fall back to backend duration
+             const effectiveDuration = isFinite(duration) && duration > 0 ? duration : backendDuration;
+
+             if (!isFinite(effectiveDuration) || effectiveDuration <= 0) {
+                 console.warn("Cannot seek: Effective duration not available.", { duration, backendDuration });
+                 progressBar.value = 0;
+                 return;
+             }
+            // Calculate seek time based on percentage value (0-100) and effective duration
+            const seekTime = (progressBar.value / 100) * effectiveDuration;
+            audioPlayer.currentTime = seekTime;
+             console.log('setPlaybackPosition: 跳转到时间', formatTime(seekTime));
+        }
+
+
+        // --- Backend Interaction Functions ---
+
+        function fetchPlaylist() {
+            console.log('fetchPlaylist: 开始获取歌曲列表...');
+            if (!playlistContainer) {
+                 console.error('fetchPlaylist: playlistContainer DOM元素不可用');
+                 return;
+            }
+            const cacheBuster = new Date().getTime();
+            fetch(`/music-player/backend.php?action=list&_=${cacheBuster}`)
+                .then(response => {
+                    console.log('fetchPlaylist: 收到响应, 状态码:', response.status);
+                     if (!response.ok) {
+                          return response.text().then(text => {
+                              console.error('fetchPlaylist: HTTP 错误响应文本:', text);
+                              try { const jsonErr = JSON.parse(text); throw new Error(jsonErr.error || `HTTP 错误! 状态码: ${response.status}`); }
+                              catch (e) { throw new Error(`HTTP 错误! 状态码: ${response.status}`); }
+                          });
+                     }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('fetchPlaylist: JSON 数据解析成功:', data);
+                    if (!Array.isArray(data)) {
+                         console.error('fetchPlaylist: 接收到的数据不是数组:', data);
+                         throw new Error('后端返回的数据格式不正确');
+                    }
+
+                    songs = data;
+                    console.log('fetchPlaylist: songs 数组已更新:', songs);
+
+                     let currentSongStillExists = false;
+                     let newCurrentSongIndex = -1;
+                      // Check by ID, not just index, in case list order changed
+                      if (currentSongIndex !== -1 && songs.length > 0 && songs[currentSongIndex]?.id) {
+                           const currentSongId = songs[currentSongIndex].id;
+                           newCurrentSongIndex = songs.findIndex(song => song.id === currentSongId);
+                           if (newCurrentSongIndex !== -1) {
+                               currentSongStillExists = true;
+                           }
+                       }
+
+                     if (currentSongStillExists) {
+                         currentSongIndex = newCurrentSongIndex;
+                          console.log('fetchPlaylist: 当前播放歌曲仍然存在, 更新索引至', currentSongIndex);
+                           // Update UI info in case list changed but same song is selected
+                          if (currentSongIndex !== -1 && songs[currentSongIndex]) {
+                              const song = songs[currentSongIndex];
+                               if (songTitle) songTitle.textContent = song.title || '未知歌曲';
+                               if (songArtist) songArtist.textContent = song.artist || '未知艺术家';
+                                // Update total time display immediately using backend duration
+                                if (totalTimeDisplay) totalTimeDisplay.textContent = formatTime(song.duration_seconds || 0);
+                                if (albumCover) albumCover.src = song.cover_url || 'https://picsum.photos/seed/' + encodeURIComponent(song.title || '') + '/300/300';
+                          }
+
+                     } else {
+                         console.log('fetchPlaylist: 当前播放歌曲不再存在或列表为空');
+                         // Reset player state only if it was playing or if the list became empty
+                         if (isPlaying || songs.length === 0) {
+                             currentSongIndex = -1;
+                             if (audioPlayer) {
+                                 audioPlayer.src = '';
+                                 audioPlayer.load();
+                             }
+                             isPlaying = false;
+                             if (playIcon) playIcon.className = 'fas fa-play text-lg';
+                             if (playerContainer) playerContainer.classList.remove('playing');
+                             if (songTitle) songTitle.textContent = '未选择歌曲';
+                             if (songArtist) songArtist.textContent = '请上传音乐文件';
+                             if (albumCover) albumCover.src = 'https://picsum.photos/seed/vinyl/300/300';
+                             updateProgressBar(); // This will reset times and progress bar display
+                         } else {
+                              // If a song was selected but not playing, and it was deleted
+                              currentSongIndex = -1;
+                              if (songTitle) songTitle.textContent = '未选择歌曲';
+                              if (songArtist) songArtist.textContent = '请上传音乐文件';
+                              if (albumCover) albumCover.src = 'https://picsum.photos/seed/vinyl/300/300';
+                              updateProgressBar(); // Reset times and progress bar display
+                          }
+                     }
+
+                    console.log('fetchPlaylist: 调用 updatePlaylist()');
+                    updatePlaylist(); // Update the playlist UI
+                    console.log('fetchPlaylist: 调用 updateButtonsState()');
+                    updateButtonsState(); // Update button states
+                })
+                .catch(error => {
+                    console.error('fetchPlaylist: 获取歌曲列表或处理数据时出错:', error);
+                     if (playlistContainer) {
+                         playlistContainer.innerHTML = `
+                             <div class="placeholder-text py-10">
+                                 <i class="fas fa-exclamation-circle text-4xl mb-3 opacity-50 text-red-500"></i>
+                                 <p class="text-red-500">${error.message || '加载歌曲列表失败。'}<br>请检查后端服务。</p>
+                             </div>
+                         `;
+                     }
+                    updateButtonsState();
+                     // Also reset player state on severe list loading error?
+                     currentSongIndex = -1;
+                     if (audioPlayer) { audioPlayer.src = ''; audioPlayer.load(); }
+                     isPlaying = false;
+                     if (playIcon) playIcon.className = 'fas fa-play text-lg';
+                     if (playerContainer) playerContainer.classList.remove('playing');
+                     if (songTitle) songTitle.textContent = '未选择歌曲';
+                     if (songArtist) songArtist.textContent = '请上传音乐文件';
+                     if (albumCover) albumCover.src = 'https://picsum.photos/seed/vinyl/300/300';
+                     updateProgressBar();
+                });
+        }
+
+        // Delete a song via backend API (REMOVED FROM UI, but kept in JS for admin panel if needed)
+        /*
+        function deleteSong(songId, songTitle) {
+            if (confirm(`确定要删除歌曲 "${songTitle}" 吗？此操作不可撤销。`)) {
+                console.log('deleteSong: 尝试删除歌曲 ID:', songId);
+
+                fetch(`/music-player/backend.php?action=delete&id=${encodeURIComponent(songId)}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                       return response.json().then(err => { throw new Error(err.error || `HTTP error! status: ${response.status}`); }).catch(() => { throw new Error(`HTTP error! status: ${response.status}`); });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('deleteSong: 删除成功响应:', data);
+                    fetchPlaylist(); // Re-fetch to update UI
+                })
+                .catch(error => {
+                    console.error('deleteSong: 删除歌曲出错:', error);
+                    alert(`删除歌曲失败: ${error.message}`);
+                });
+            }
+        }
+        */
+
+
+        // --- UI Update Functions ---
+
+        // Create a single playlist item DOM element
+        function createSongElement(song, index) {
+             console.log('createSongElement: 为歌曲创建元素:', song?.title || '未知', '索引:', index, '歌曲对象:', song);
+             // Check for minimum required data: id, url
+             if (!song || !song.id || !song.url) {
+                 console.error('createSongElement: 收到无效或不完整的歌曲对象 (缺少ID或URL):', song);
+                 // Return a placeholder element for invalid data
+                 const errorItem = document.createElement('div');
+                 errorItem.className = `playlist-item p-3 text-red-500`;
+                 const displayName = song?.title || pathinfo(song?.external_url || song?.music_filename, PATHINFO_FILENAME) || '未知文件';
+                 errorItem.innerHTML = `
+                     <div class="flex-grow min-w-0">
+                         <p class="font-medium truncate">加载 "${displayName}" 失败</p>
+                         <p class="text-xs">数据不完整 (缺少ID或URL)</p>
+                     </div>
+                 `;
+                 return errorItem; // Return an error element
+             }
+
+            const item = document.createElement('div');
+            item.className = `playlist-item p-3 cursor-pointer flex items-center gap-3 ${index === currentSongIndex ? 'active' : ''}`;
+            item.dataset.index = index; // Store index
+            item.dataset.songId = song.id; // Store song ID
+
+            // Title fallback: prioritize existing title, then original_filename (for local), then external_url filename (for external), then generic
+            const title = song.title || pathinfo(song.original_filename || song.external_url || song.music_filename, PATHINFO_FILENAME) || '未知歌曲';
+            const artist = song.artist || '未知艺术家';
+            // Use the formatted duration string from backend for playlist display
+            // For external URLs, duration_seconds will be 0, so display '0:00' until loaded by Audio API
+            const durationDisplay = song.duration || formatTime(song.duration_seconds);
+            const coverUrl = song.cover_url || 'https://picsum.photos/seed/' + encodeURIComponent(title || '') + '/50/50';
+
+            item.innerHTML = `
+                <div class="w-8 h-8 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 neu-convex">
+                    <img src="${coverUrl}" alt="Album Cover" class="w-full h-full object-cover">
+                </div>
+                <div class="flex-grow min-w-0">
+                    <p class="font-medium truncate">${title}</p>
+                    <p class="text-xs text-gray-500 truncate">${artist} - ${durationDisplay}</p>
+                </div>
+                <!-- Delete button HTML removed as requested -->
+            `;
+             console.log('createSongElement: 元素创建完成并返回:', title);
+            return item;
+        }
+
+
+        // Update the playlist UI based on the current 'songs' array
+        function updatePlaylist() {
+             console.log('updatePlaylist: 开始执行, songs 长度:', songs.length);
+             if (!playlistContainer) {
+                  console.error('updatePlaylist: playlistContainer DOM元素不可用');
+                  return;
+             }
+
+            playlistContainer.innerHTML = '';
+
+            if (songs.length === 0) {
+                 console.log('updatePlaylist: songs 数组为空，显示空列表消息');
+                playlistContainer.innerHTML = `
+                    <div class="placeholder-text py-10">
+                        <i class="fas fa-music text-4xl mb-3 opacity-30"></i>
+                        <p>播放列表为空，请上传音乐。</p>
+                    </div>
+                `;
+                console.log('updatePlaylist: 空列表消息已设置');
+                return;
+            }
+
+            console.log('updatePlaylist: songs 数组不为空，开始遍历并添加歌曲');
+            songs.forEach((song, index) => {
+                try {
+                    console.log(`updatePlaylist: 尝试创建并添加索引 ${index} 的歌曲元素:`, song?.title || song?.original_filename || '未知');
+                    const songElement = createSongElement(song, index);
+
+                    if (songElement) {
+                         playlistContainer.appendChild(songElement);
+
+                         // Add click listener
+                         if (!songElement.classList.contains('text-red-500')) { // Only add click listener if not an error item
+                             songElement.addEventListener('click', (event) => {
+                                  // No delete button to prevent clicking on, so simplified
+                                  const clickedIndex = parseInt(event.currentTarget.dataset.index);
+                                  console.log('playlist item click: 尝试播放索引', clickedIndex);
+                                  playSong(clickedIndex);
+                             });
+                         }
+                          console.log(`updatePlaylist: 索引 ${index} 的歌曲元素已成功添加到容器`);
+                    } else {
+                         console.warn(`updatePlaylist: createSongElement 返回了 null 或 undefined, 跳过索引 ${index}`);
+                    }
+
+                } catch (e) {
+                    console.error(`updatePlaylist: 在处理索引 ${index} 的歌曲时发生错误:`, song?.original_filename || song?.title || '未知文件', e);
+                    // Add a generic error indicator if createSongElement itself threw an error
+                    const errorItem = document.createElement('div');
+                    errorItem.className = `playlist-item p-3 text-red-500`;
+                    errorItem.innerHTML = `
+                        <div class="flex-grow min-w-0">
+                            <p class="font-medium truncate">列表项加载失败 (索引 ${index})</p>
+                            <p class="text-xs">${e.message || '未知错误'}</p>
+                        </div>
+                    `;
+                    if(playlistContainer) playlistContainer.appendChild(errorItem);
+                }
+            });
+            console.log('updatePlaylist: 遍历歌曲完毕');
+        }
+
+        // Play a specific song by index
+        function playSong(index) {
+             console.log('playSong: 尝试播放索引', index);
+            if (!audioPlayer || !songTitle || !songArtist || !albumCover || !playlistContainer || !playerContainer || !totalTimeDisplay || !progressBar) {
+                 console.error('playSong: 必要的DOM元素不可用');
+                 return;
+            }
+
+            if (index < 0 || index >= songs.length) {
+                console.error('playSong: 无效的歌曲索引:', index);
+                return;
+            }
+
+             const song = songs[index];
+             // Basic check for required properties before playing
+             if (!song || !song.url || typeof song.id === 'undefined') { // Check for ID and URL
+                  console.error('playSong: 歌曲数据无效或缺少必要属性 (ID/URL):', song);
+                   alert(`无法播放歌曲 "${song?.title || '未知歌曲'}"：数据不完整。`);
+                   return;
+             }
+
+             // If clicking the currently loaded song, just toggle play/pause
+             // Check if audioPlayer.src matches the song URL to be sure it's the same file
+              // Normalize URLs before comparison to account for different origins/paths
+              let currentAudioSrcUrl = null;
+              if (audioPlayer.src) {
+                  try { currentAudioSrcUrl = new URL(audioPlayer.src, window.location.origin); } catch (e) { console.warn("Invalid audioPlayer.src:", audioPlayer.src, e); }
+              }
+              let songUrl = null;
+              if (song.url) {
+                  try { songUrl = new URL(song.url, window.location.origin); } catch (e) { console.warn("Invalid song.url:", song.url, e); }
+              }
+
+              if (index === currentSongIndex && currentAudioSrcUrl?.href === songUrl?.href) {
+                 console.log('playSong: 点击了当前已加载的歌曲，切换播放状态');
+                 togglePlay();
+                 return;
+             }
+
+            currentSongIndex = index;
+             console.log('playSong: 设置当前播放索引为', currentSongIndex);
+
+            // Update player UI immediately
+            songTitle.textContent = song.title || pathinfo(song.original_filename || song.external_url || song.music_filename, PATHINFO_FILENAME) || '未知歌曲';
+            songArtist.textContent = song.artist || '未知艺术家';
+
+            // Set total time display using backend duration (which is 0 for external URLs initially)
+             totalTimeDisplay.textContent = formatTime(song.duration_seconds || 0); // Will show 0:00 for external links
+             console.log('playSong: 根据后端数据设置总时长:', totalTimeDisplay.textContent);
+
+            // Reset current time display and progress bar
+             currentTimeDisplay.textContent = '0:00';
+             progressBar.value = 0;
+             progressBar.max = 100; // Keep max at 100 for percentage display
+
+
+            // Set audio source using backend URL
+            audioPlayer.src = song.url;
+             console.log('playSong: 设置音频源为', audioPlayer.src);
+
+
+            // Set album cover using backend URL, fallback to default
+            albumCover.src = song.cover_url || 'https://picsum.photos/seed/' + encodeURIComponent(song.title || '') + '/300/300';
+             console.log('playSong: 设置封面为', albumCover.src);
+
+
+            // Update playlist active state UI
+            playlistContainer.querySelectorAll('.playlist-item').forEach((item) => {
+                if (parseInt(item.dataset.index) === currentSongIndex) {
+                    item.classList.add('active');
+                     item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+             console.log('playSong: 播放列表 active 状态已更新');
+
+
+            // Load the new audio source and attempt to play
+            audioPlayer.load();
+             console.log('playSong: 调用 audioPlayer.load()');
+            audioPlayer.play()
+                .then(() => {
+                    isPlaying = true;
+                    if (playIcon) playIcon.className = 'fas fa-pause text-lg';
+                    if (playerContainer) playerContainer.classList.add('playing');
+                    console.log(`playSong: 成功开始播放: ${song.title}`);
+                })
+                .catch(error => {
+                    console.error('playSong: 播放音频时出错:', error);
+                    isPlaying = false;
+                    if (playIcon) playIcon.className = 'fas fa-play text-lg';
+                    if (playerContainer) playerContainer.classList.remove('playing');
+                    if (songTitle) songTitle.textContent = '播放错误';
+                     if (songArtist) songArtist.textContent = song.title || '未知歌曲';
+                    // Reset duration display back to 0:00 or an error indicator
+                     if (currentTimeDisplay) currentTimeDisplay.textContent = '0:00';
+                     if (totalTimeDisplay) totalTimeDisplay.textContent = '0:00';
+                     if (progressBar) { progressBar.value = 0; progressBar.max = 100; } // Reset slider state
+                    updateButtonsState(); // Re-evaluate buttons (especially progress bar)
+                     alert(`无法播放歌曲 "${song.title || '未知歌曲'}"。\n请检查文件是否可用或网络连接。\n错误详情: ${error.message}`);
+                     // Decide what to do next on critical error: reset?
+                     currentSongIndex = -1; // Reset selection on critical playback error
+                     updatePlaylist(); // Update playlist UI to remove active state
+                });
+
+             console.log('playSong: 调用 updateButtonsState()');
+            updateButtonsState();
+        }
+
+        // Toggle Play/Pause
+        function togglePlay() {
+             console.log('togglePlay: 切换播放/暂停');
+             if (!audioPlayer || !playIcon || !playerContainer || !playButton || !songTitle || !songArtist) {
+                  console.error('togglePlay: 必要的DOM元素不可用');
+                  return;
+             }
+
+             // Check if a song is selected and has a URL before allowing toggle
+             if (songs.length === 0 || currentSongIndex === -1 || !songs[currentSongIndex]?.url) {
+                 console.log("togglePlay: 无歌曲、未选择歌曲或歌曲URL缺失，无法播放/暂停.");
+                  isPlaying = false;
+                  playIcon.className = 'fas fa-play text-lg';
+                  playerContainer.classList.remove('playing');
+                 return;
+             }
+
+             const song = songs[currentSongIndex];
+
+            if (audioPlayer.paused) {
+                console.log('togglePlay: 当前已暂停，尝试播放');
+                audioPlayer.play()
+                    .then(() => {
+                        isPlaying = true;
+                        playIcon.className = 'fas fa-pause text-lg';
+                        playerContainer.classList.add('playing');
+                         console.log('togglePlay: 播放成功');
+                    })
+                    .catch(error => {
+                        console.error('togglePlay: 尝试播放时出错:', error);
+                         isPlaying = false;
+                         playIcon.className = 'fas fa-play text-lg';
+                         playerContainer.classList.remove('playing');
+                         alert(`无法继续播放歌曲 "${song?.title || '未知歌曲'}"。\n请检查文件是否可用。\n错误详情: ${error.message}`);
+                         updateButtonsState();
+                    });
+            } else {
+                console.log('togglePlay: 当前正在播放，尝试暂停');
+                audioPlayer.pause();
+                isPlaying = false;
+                playIcon.className = 'fas fa-play text-lg';
+                playerContainer.classList.remove('playing');
+                 console.log('togglePlay: 暂停成功');
+            }
+             updateButtonsState();
+        }
+
+        // Play next song
+        function playNext() {
+             console.log('playNext: 尝试播放下一首');
+            if (songs.length === 0) {
+                 console.log('playNext: 歌曲列表为空，无法播放下一首');
+                return;
+            }
+             if (songs.length === 1 && !isRepeat) {
+                 console.log('playNext: 只有一首歌曲且未开启循环，停止播放');
+                 if (audioPlayer) {
+                      audioPlayer.pause();
+                      audioPlayer.currentTime = 0;
+                 }
+                 isPlaying = false;
+                 if (playIcon) playIcon.className = 'fas fa-play text-lg';
+                 if (playerContainer) playerContainer.classList.remove('playing');
+                 currentSongIndex = -1; // Reset selection
+                 updateProgressBar(); // Resets display to 0:00 etc.
+                 updatePlaylist(); // Remove active state
+                 updateButtonsState(); // Disable buttons
+                 return;
+             }
+
+
+             if (currentSongIndex === -1) {
+                 console.log('playNext: 当前未选择歌曲，尝试播放第一首');
+                 playSong(0);
+                 return;
+             }
+
+
+            let nextIndex;
+
+            if (isShuffle) {
+                 console.log('playNext: 随机模式');
+                 if (songs.length === 1) {
+                      nextIndex = 0;
+                 } else {
+                     let attemptCount = 0;
+                     do {
+                        nextIndex = Math.floor(Math.random() * songs.length);
+                        attemptCount++;
+                     } while (nextIndex === currentSongIndex && songs.length > 1 && attemptCount < 10);
+                      if (nextIndex === currentSongIndex && songs.length > 1) {
+                           console.warn('playNext: 随机模式下难以找到不同歌曲，回退到顺序下一首');
+                           nextIndex = (currentSongIndex + 1) % songs.length;
+                      }
+                 }
+            } else {
+                 console.log('playNext: 顺序模式');
+                nextIndex = currentSongIndex + 1;
+            }
+
+             // If not repeating and nextIndex goes beyond the last song, stop
+             if (!isRepeat && nextIndex >= songs.length) {
+                 console.log("playNext: 到达列表末尾且未开启循环，停止播放.");
+                  if (audioPlayer) {
+                       audioPlayer.pause();
+                       audioPlayer.currentTime = 0;
+                  }
+                  isPlaying = false;
+                  if (playIcon) playIcon.className = 'fas fa-play text-lg';
+                  if (playerContainer) playerContainer.classList.remove('playing');
+                  currentSongIndex = -1; // Reset selection
+                  updateProgressBar(); // Resets display to 0:00 etc.
+                  updatePlaylist(); // Remove active state
+                  updateButtonsState(); // Disable buttons
+                  return;
+             }
+
+            // Wrap around to beginning if needed (only in sequential mode or if shuffle chose 0)
+            if (nextIndex >= songs.length) {
+                 nextIndex = 0;
+                 console.log('playNext: 循环到开头');
+            }
+
+            playSong(nextIndex);
+        }
+
+        // Play previous song
+        function playPrev() {
+             console.log('playPrev: 尝试播放上一首');
+            if (songs.length === 0) {
+                 console.log('playPrev: 歌曲列表为空，无法播放上一首');
+                return;
+            }
+             if (songs.length === 1) {
+                 console.log('playPrev: 只有一首歌曲');
+                 playSong(0);
+                 return;
+             }
+             if (currentSongIndex === -1) {
+                 console.log('playPrev: 当前未选择歌曲，尝试播放最后一首');
+                 playSong(songs.length - 1);
+                 return;
+             }
+
+
+            let prevIndex;
+
+            if (isShuffle) {
+                 console.log('playPrev: 随机模式');
+                 let attemptCount = 0;
+                 do {
+                    prevIndex = Math.floor(Math.random() * songs.length);
+                    attemptCount++;
+                 } while (prevIndex === currentSongIndex && songs.length > 1 && attemptCount < 10);
+                  if (prevIndex === currentSongIndex && songs.length > 1) {
+                       console.warn('playPrev: 随机模式下难以找到不同歌曲，回退到顺序上一首');
+                       prevIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+                  }
+            } else {
+                 console.log('playPrev: 顺序模式');
+                prevIndex = currentSongIndex - 1;
+            }
+
+            // Wrap around to end if needed
+            if (prevIndex < 0) {
+                prevIndex = songs.length - 1;
+                 console.log('playPrev: 循环到末尾');
+            }
+
+            playSong(prevIndex);
+        }
+
+        // Helper to get filename from path safely (matches PHP's pathinfo(..., PATHINFO_FILENAME))
+         function pathinfo(path, option) {
+             if (!path) return '';
+             const basename = path.split('/').pop().split('\\').pop(); // Get filename with extension
+             if (option === 4) { // PATHINFO_FILENAME
+                 const parts = basename.split('.');
+                 if (parts.length > 1 && parts[parts.length - 1].length <= 4) { // Heuristic: only remove short extensions
+                     parts.pop(); // Remove extension
+                 }
+                 return parts.join('.');
+             }
+             return basename; // Default or other options return basename
+         }
+
+
+        // --- DOMContentLoaded Listener ---
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded: 进入回调函数');
+
+            // --- Get DOM Elements ---
+            audioPlayer = document.getElementById('audio-player');
+            playButton = document.getElementById('play-button');
+            playIcon = document.getElementById('play-icon');
+            prevButton = document.getElementById('prev-button');
+            nextButton = document.getElementById('next-button');
+            progressBar = document.getElementById('progress-bar');
+            volumeControl = document.getElementById('volume-control');
+            currentTimeDisplay = document.getElementById('current-time');
+            totalTimeDisplay = document.getElementById('total-time');
+            shuffleButton = document.getElementById('shuffle-button');
+            repeatButton = document.getElementById('repeat-button');
+            uploadMusicInput = document.getElementById('upload-music');
+            playlistContainer = document.getElementById('playlist');
+            albumCover = document.getElementById('album-cover');
+            songTitle = document.getElementById('song-title');
+            songArtist = document.getElementById('song-artist');
+            playerContainer = document.getElementById('player-container');
+
+            console.log('DOMContentLoaded: 所有DOM元素获取完毕');
+
+            // --- Initial Setup ---
+
+            const savedVolume = localStorage.getItem('vinylVolume');
+            const initialVolume = savedVolume !== null ? parseInt(savedVolume) : 80;
+            if (volumeControl) volumeControl.value = initialVolume;
+            if (audioPlayer) audioPlayer.volume = initialVolume / 100;
+            console.log('DOMContentLoaded: 初始化音量至', initialVolume);
+
+            if (audioPlayer) isRepeat = audioPlayer.loop;
+            if (repeatButton && isRepeat) {
+                repeatButton.classList.add('text-accent');
+                repeatButton.classList.remove('text-gray-500');
+            }
+            console.log('DOMContentLoaded: 初始化循环状态:', isRepeat);
+
+            // --- Register Event Listeners ---
+
+            if (playButton) playButton.addEventListener('click', togglePlay);
+            if (prevButton) prevButton.addEventListener('click', playPrev);
+            if (nextButton) nextButton.addEventListener('click', playNext);
+            if (audioPlayer) audioPlayer.addEventListener('timeupdate', updateProgressBar);
+
+            if (audioPlayer) audioPlayer.addEventListener('loadedmetadata', () => {
+                 console.log('Event: loadedmetadata');
+                 console.log('loadedmetadata: audioPlayer.duration =', audioPlayer.duration);
+                 // If audioPlayer.duration is now known for an external URL, update total time display
+                 if (isFinite(audioPlayer.duration) && audioPlayer.duration > 0) {
+                     if (totalTimeDisplay) totalTimeDisplay.textContent = formatTime(audioPlayer.duration);
+                 }
+                 updateProgressBar(); // Update progress bar and ensure button states are correct
+             });
+
+             if (audioPlayer) audioPlayer.addEventListener('error', (event) => {
+                 console.error('Event: Audio playback error:', event.target.error);
+                 let errorMessage = '发生播放错误。文件可能损坏、格式不受支持或URL无效。';
+                 if (event.target.error && event.target.error.message) {
+                     errorMessage += ` 错误详情: ${event.target.error.message}`;
+                 }
+                 alert(errorMessage);
+                 isPlaying = false;
+                 if (playIcon) playIcon.className = 'fas fa-play text-lg';
+                 if (playerContainer) playerContainer.classList.remove('playing');
+                  if (songTitle) songTitle.textContent = '播放错误';
+                  if (songArtist) songArtist.textContent = (currentSongIndex !== -1 && songs[currentSongIndex]) ? songs[currentSongIndex].title || '未知歌曲' : '无法加载歌曲';
+                 updateProgressBar(); // This will reset times and progress bar display to 0:00 state
+                 updateButtonsState();
+                 currentSongIndex = -1; // Reset selection on critical playback error
+                 updatePlaylist(); // Remove active state
+             });
+
+            if (progressBar) progressBar.addEventListener('input', setPlaybackPosition);
+
+            if (audioPlayer) audioPlayer.addEventListener('ended', () => {
+                 console.log('Event: audioPlayer ended');
+                 isPlaying = false;
+                 if (playIcon) playIcon.className = 'fas fa-play text-lg';
+                 if (playerContainer) playerContainer.classList.remove('playing');
+
+                 if (!isRepeat) {
+                     playNext();
+                 } else {
+                      console.log("Event: ended, but isRepeat is true. Relying on audioPlayer.loop for restart.");
+                 }
+            });
+
+             if (audioPlayer) audioPlayer.addEventListener('play', () => {
+                 console.log('Event: audioPlayer play');
+                 isPlaying = true;
+                 if (playIcon) playIcon.className = 'fas fa-pause text-lg';
+                 if (playerContainer) playerContainer.classList.add('playing');
+                 updateButtonsState();
+             });
+
+             if (audioPlayer) audioPlayer.addEventListener('pause', () => {
+                  console.log('Event: audioPlayer pause');
+                  isPlaying = false;
+                  if (playIcon) playIcon.className = 'fas fa-play text-lg';
+                  if (playerContainer) playerContainer.classList.remove('playing');
+             });
+
+            if (volumeControl) volumeControl.addEventListener('input', (event) => {
+                const newVolume = event.target.value;
+                if (audioPlayer) audioPlayer.volume = newVolume / 100;
+                localStorage.setItem('vinylVolume', newVolume);
+                 console.log('Event: volumeControl input, Volume set to:', audioPlayer?.volume);
+            });
+
+             if (shuffleButton) shuffleButton.addEventListener('click', () => {
+                 isShuffle = !isShuffle;
+                 shuffleButton.classList.toggle('text-accent', isShuffle);
+                 shuffleButton.classList.toggle('text-gray-500', !isShuffle);
+                 console.log('Event: Shuffle Toggled:', isShuffle ? 'On' : 'Off');
+             });
+
+             if (repeatButton) repeatButton.addEventListener('click', () => {
+                isRepeat = !isRepeat;
+                if (audioPlayer) audioPlayer.loop = isRepeat;
+                repeatButton.classList.toggle('text-accent', isRepeat);
+                repeatButton.classList.toggle('text-gray-500', !isRepeat);
+                console.log('Event: Repeat Toggled:', isRepeat ? 'On' : 'Off');
+            });
+
+            if (uploadMusicInput) uploadMusicInput.addEventListener('change', (event) => {
+                const files = event.target.files;
+                if (files.length === 0) {
+                     console.log('Event: uploadMusicInput change, No files selected');
+                    return;
+                }
+
+                const formData = new FormData();
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('music_file[]', files[i]);
+                }
+
+                console.log(`Event: uploadMusicInput change, Uploading ${files.length} files...`);
+
+                 const uploadLabel = uploadMusicInput.previousElementSibling;
+                  const originalUploadText = uploadLabel?.querySelector('span')?.textContent || '上传音乐';
+                  const originalUploadIcon = uploadLabel?.querySelector('i')?.className || 'fas fa-upload';
+
+                  if (uploadLabel) {
+                     const span = uploadLabel.querySelector('span');
+                     const icon = uploadLabel.querySelector('i');
+                     if (span) span.textContent = '上传中...';
+                     if (icon) icon.className = 'fas fa-spinner fa-spin';
+                     uploadLabel.style.pointerEvents = 'none';
+                 } else {
+                      console.warn("Could not find the upload label element.");
+                 }
+
+                fetch('/music-player/backend.php?action=upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                     if (!response.ok) {
+                          return response.json().then(err => { throw new Error(err.error || `HTTP error! status: ${response.status}`); }).catch(() => { throw new Error(`HTTP error! status: ${response.status}`); });
+                     }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Upload response:', data);
+                    if (data.uploaded_songs && data.uploaded_songs.length > 0) {
+                        console.log(`Successfully processed ${data.uploaded_songs.length} songs.`);
+                        fetchPlaylist();
+                         alert(`${data.uploaded_songs.length} 首歌曲上传并处理成功!`);
+                    } else if (data.error) {
+                         console.warn('Upload completed with server-side error:', data.error);
+                         alert(`文件上传完成，但处理失败:\n${data.error}`);
+                    }
+                    else {
+                        console.warn('Upload completed but no songs were successfully processed or error message:', data);
+                        alert('文件上传完成，但未成功处理任何音乐文件。\n请检查文件格式或服务器日志。');
+                    }
+                })
+                .catch(error => {
+                    console.error('Upload error:', error);
+                    alert(`文件上传失败: ${error.message}`);
+                })
+                .finally(() => {
+                     if (uploadLabel) {
+                         const span = uploadLabel.querySelector('span');
+                         const icon = uploadLabel.querySelector('i');
+                         if (span) span.textContent = originalUploadText;
+                         if (icon) icon.className = originalUploadIcon;
+                         uploadLabel.style.pointerEvents = '';
+                     }
+                     uploadMusicInput.value = '';
+                     console.log('Upload process finished.');
+                });
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                      return;
+                 }
+
+                 if (e.code === 'Space') {
+                     e.preventDefault();
+                     if (playButton && !playButton.disabled) {
+                        console.log('Keyboard: Spacebar pressed');
+                        togglePlay();
+                     }
+                 }
+
+                  if (!playButton || playButton.disabled) return;
+
+                 if (e.code === 'ArrowLeft') {
+                     e.preventDefault();
+                     if (audioPlayer) audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 5);
+                     console.log('Keyboard: ArrowLeft pressed, Seek -5s');
+                 }
+
+                 if (e.code === 'ArrowRight') {
+                     e.preventDefault();
+                     if (audioPlayer) {
+                          // Use effective duration for seeking bounds
+                         const currentSong = songs[currentSongIndex];
+                         const backendDuration = currentSong ? (currentSong.duration_seconds || 0) : 0;
+                         const effectiveDuration = isFinite(audioPlayer.duration) && audioPlayer.duration > 0 ? audioPlayer.duration : backendDuration;
+
+                         const newTime = audioPlayer.currentTime + 5;
+                         audioPlayer.currentTime = Math.min(effectiveDuration > 0 ? effectiveDuration : newTime, newTime); // Seek up to effective duration
+                          console.log('Keyboard: ArrowRight pressed, Seek +5s');
+                     }
+                 }
+
+                 if (e.code === 'ArrowUp') {
+                      e.preventDefault();
+                       if (volumeControl && audioPlayer) {
+                           const newVolume = Math.min(100, parseInt(volumeControl.value) + 5);
+                           volumeControl.value = newVolume;
+                           audioPlayer.volume = newVolume / 100;
+                           localStorage.setItem('vinylVolume', newVolume); // Save volume on change
+                           console.log('Keyboard: ArrowUp pressed, Volume increased to', newVolume);
+                       }
+                 }
+
+                 if (e.code === 'ArrowDown') {
+                      e.preventDefault();
+                       if (volumeControl && audioPlayer) {
+                           const newVolume = Math.max(0, parseInt(volumeControl.value) - 5);
+                           volumeControl.value = newVolume;
+                           audioPlayer.volume = newVolume / 100;
+                            localStorage.setItem('vinylVolume', newVolume); // Save volume on change
+                            console.log('Keyboard: ArrowDown pressed, Volume decreased to', newVolume);
+                       }
+                 }
+             });
+
+              console.log('DOMContentLoaded: 所有事件监听器注册完毕');
+
+            updateButtonsState();
+             console.log('DOMContentLoaded: Initial updateButtonsState() called.');
+
+            console.log('DOMContentLoaded: 调用 fetchPlaylist()');
+            fetchPlaylist();
+
+            console.log('DOMContentLoaded: 回调函数执行结束');
+        });
+
+        console.log('脚本文件定义完毕 - WAITING FOR DOMContentLoaded');
+
+    </script>
+</body>
+</html>
