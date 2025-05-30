@@ -20,6 +20,11 @@ const SONGS_FILE = '/tmp/songs.json';
 const ALLOWED_EXTENSIONS = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'];
 const MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024; // 100 MB
 
+if (!file_exists(SONGS_FILE)) {
+    // 创建一个空文件
+    touch(SONGS_FILE);
+}
+
 // 确保目录存在
 function ensureDirsExist() {
     $dirs = [UPLOAD_DIR, COVERS_DIR];
