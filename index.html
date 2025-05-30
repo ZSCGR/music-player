@@ -557,7 +557,7 @@
                  return;
             }
             const cacheBuster = new Date().getTime();
-            fetch(`/api/backend.php?action=list&_=${cacheBuster}`)
+            fetch(`/backend.php?action=list&_=${cacheBuster}`)
                 .then(response => {
                     console.log('fetchPlaylist: 收到响应, 状态码:', response.status);
                      if (!response.ok) {
@@ -1249,7 +1249,7 @@
                       console.warn("Could not find the upload label element.");
                  }
 
-                fetch('/api/backend.php?action=upload', {
+                fetch('/backend.php?action=upload', {
                     method: 'POST',
                     body: formData
                 })
