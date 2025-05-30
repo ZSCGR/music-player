@@ -606,7 +606,7 @@ if (!$is_logged_in) {
         <div class="header-content">
             <h1><i class="fas fa-compact-disc"></i> Vinyl Player 管理后台</h1>
             <div class="header-actions">
-                <a href="index.html" target="_blank" class="button button-secondary">
+                <a href="./index.html" target="_blank" class="button button-secondary">
                     <i class="fas fa-external-link-alt"></i>
                     查看前台
                 </a>
